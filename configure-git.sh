@@ -5,6 +5,9 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+GITHUB_USER='policloud'
+KEY_TITLE='deploy-$(hostname -s)'
+CLONE_DIR='~/${REPO_NAME}'
 sudo apt update
 sudo apt install jq -y
 
