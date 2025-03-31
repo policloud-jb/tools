@@ -54,3 +54,28 @@ elif [[ "$RESPONSE" == "422" ]]; then
 else
     echo -e "${RED}❌ Failed to add key. HTTP status: $RESPONSE${NC}"
 fi
+
+# -------- SET UP SSH CONFIG IF NOT PRESENT --------
+SSH_CONFIG="${SSH_DIR}/config"
+if ! grep -q "${KEY_PATH}" "${SSH_CONFIG}" 2>/dev/null; then
+    echo "🔧 Adding SSH config for GitHub..."
+    echo "
+Host github.com
+    HostName github.com
+    IdentityFile ${KEY_PATH}
+    IdentitiesOnly yes
+    User git
+" >> "${SSH_CONFIG}"
+    chmod 600 "${SSH_CONFIG}"
+fi
+
+# -------- CLONE REPO --------
+echo -e "📥 Cloning repo to ${CLONE_DIR}...\n"
+git clone "git@github.com:${GITHUB_USER}/${REPO_NAME}.git" "${CLONE_DIR}"
+
+if [[ $? -eq 0 ]]; then
+    echo -e "${GREEN}✅ Repo cloned successfully to ${CLONE_DIR}${NC}"
+else
+    echo -e "${RED}❌ Repo clone failed.${NC}"
+    exit 1
+fi
