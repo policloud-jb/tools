@@ -6,8 +6,8 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 GITHUB_USER='policloud'
-KEY_TITLE='deploy-$(hostname -s)'
-CLONE_DIR='~/${REPO_NAME}'
+KEY_TITLE="deploy-$(hostname -s)"
+
 sudo apt update
 sudo apt install jq -y
 
@@ -39,9 +39,10 @@ PUB_KEY_CONTENT=$(cat "${PUB_KEY_FILE}")
 KEY_PATH="${PUB_KEY_FILE%.pub}"
 
 # -------- PROMPT FOR GITHUB DETAILS --------
-#read -rp "👤 GitHub user/org (e.g., policloud): " GITHUB_USER
+# read -rp "👤 GitHub user/org (e.g., policloud): " GITHUB_USER
 read -rp "📦 Repository name (e.g., my-repo): " REPO_NAME
-#read -rp "🏷️  Deploy key title (default: deploy-$(hostname -s)): " KEY_TITLE
+CLONE_DIR="${HOME}/${REPO_NAME}"
+# read -rp "🏷️  Deploy key title (default: deploy-$(hostname -s)): " KEY_TITLE
 #KEY_TITLE="${KEY_TITLE:-deploy-$(hostname -s)}"
 #read -rp "📁 Clone directory (default: ~/${REPO_NAME}): " CLONE_DIR
 #CLONE_DIR="${CLONE_DIR:-$HOME/${REPO_NAME}}"
