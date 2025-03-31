@@ -35,8 +35,8 @@ KEY_PATH="${PUB_KEY_FILE%.pub}"
 # -------- PROMPT FOR GITHUB DETAILS --------
 read -rp "👤 GitHub user/org (e.g., policloud): " GITHUB_USER
 read -rp "📦 Repository name (e.g., my-repo): " REPO_NAME
-read -rp "🏷️  Deploy key title (default: auto-deploy-$(hostname -s)): " KEY_TITLE
-KEY_TITLE="${KEY_TITLE:-auto-deploy-$(hostname -s)}"
+read -rp "🏷️  Deploy key title (default: deploy-$(hostname -s)): " KEY_TITLE
+KEY_TITLE="${KEY_TITLE:-deploy-$(hostname -s)}"
 read -rp "📁 Clone directory (default: ~/${REPO_NAME}): " CLONE_DIR
 CLONE_DIR="${CLONE_DIR:-$HOME/${REPO_NAME}}"
 read -rp "🔐 GitHub token (with repo + admin:public_key scopes): " -s GITHUB_TOKEN
