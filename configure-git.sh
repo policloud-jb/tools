@@ -5,6 +5,9 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+sudo apt update
+sudo apt install jq -y
+
 # -------- CHECK DEPENDENCIES --------
 for cmd in curl jq git; do
   command -v $cmd >/dev/null 2>&1 || { echo "❌ $cmd is required"; exit 1; }
