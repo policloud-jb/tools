@@ -20,9 +20,20 @@ done
 SSH_DIR="$HOME/.ssh"
 PUB_KEYS=($(ls ${SSH_DIR}/*.pub 2>/dev/null))
 
+
 if [ ${#PUB_KEYS[@]} -eq 0 ]; then
     echo "❌ No public SSH keys found in ${SSH_DIR}"
-    exit 1
+    echo "🔐 Generating a new SSH key..."
+    mkdir -p "${SSH_DIR}"
+    chmod 700 "${SSH_DIR}"
+    ssh-keygen -t ed25519 -C 'ops@policloud.com' -f "${SSH_DIR}/github_deploy" -N '' -q
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}✅ SSH key generated at ${SSH_DIR}/github_deploy${NC}"
+        PUB_KEYS=("${SSH_DIR}/github_deploy.pub")
+    else
+        echo -e "${RED}❌ Failed to generate SSH key${NC}"
+        exit 1
+    fi
 fi
 
 echo "🔐 Available SSH public keys:"
