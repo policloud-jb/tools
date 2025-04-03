@@ -18,7 +18,7 @@ done
 
 # -------- LOAD SSH KEYS --------
 SSH_DIR="$HOME/.ssh"
-PUB_KEYS=($(ls ${SSH_DIR}/*.pub 2>/dev/null))
+PUB_KEYS=($(ls ${SSH_DIR}/github_deploy.pub 2>/dev/null))
 
 
 if [ ${#PUB_KEYS[@]} -eq 0 ]; then
