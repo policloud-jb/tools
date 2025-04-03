@@ -68,7 +68,7 @@ RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null \
   -H "Authorization: token ${GITHUB_TOKEN}" \
   -H "Accept: application/vnd.github+json" \
   https://api.github.com/repos/${GITHUB_USER}/${REPO_NAME}/keys \
-  -d "{\"title\":\"${KEY_TITLE}\",\"key\":\"${PUB_KEY_CONTENT}\",\"read_only\":true}")
+  -d "{\"title\":\"${KEY_TITLE}\",\"key\":\"${PUB_KEY_CONTENT}\",\"read_only\":false}")
 
 case "$RESPONSE" in
   201)
