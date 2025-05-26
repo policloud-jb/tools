@@ -136,6 +136,7 @@ create_ops_user() {
 install_packages() {
     print_step "Updating package lists..."
     apt update
+    apt upgrade -y
     
     print_step "Installing required packages..."
     apt install -y "${PACKAGES[@]}"
