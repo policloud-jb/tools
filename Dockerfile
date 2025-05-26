@@ -1,19 +1,25 @@
 FROM debian:12.9
 
-# Install any dependencies your script needs
+# Install basic dependencies for testing
 RUN apt-get update && apt-get install -y \
-    bash \
+    sudo \
     curl \
     wget \
-    # add other packages as needed
+    git \
+    systemctl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy your script
-COPY setup-controller.sh /app/
-WORKDIR /app
+# Create a working directory
+WORKDIR /test
 
-# Make it executable
-RUN chmod +x setup-controller.sh
+# Copy the setup script
+COPY setup-system.sh /test/
+RUN chmod +x /test/setup-system.sh
 
-# Default command
-CMD ["./setup-controller.sh"]
+# Default command to run the script with test parameters
+CMD ["./setup-system.sh", \
+     "--ops-user", "ops", \
+     "--github-user", "policloud-ops", \
+     "--git-user", "ops", \
+     "--git-email", "ops@policloud.com", \
+     "--repo", "tools"]
