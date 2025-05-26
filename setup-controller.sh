@@ -3,6 +3,7 @@
 # ========================================
 # Linux System Setup Script
 # Manages packages, SSH keys, and Git configuration
+# All configuration via command line arguments
 # ========================================
 
 # -------- COLORS --------
@@ -12,15 +13,14 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# -------- CONFIGURATION --------
-OPS_USER="ops"
-SSH_DIR="/home/${OPS_USER}/.ssh"
-DEFAULT_GITHUB_USER="policloud-jb"
-REPO_NAME="tools"
-
-# Default Git configuration
-DEFAULT_GIT_USER="ops"
-DEFAULT_GIT_EMAIL="ops@policloud.com"
+# -------- GLOBAL VARIABLES (set via arguments) --------
+OPS_USER=""
+SSH_DIR=""
+GITHUB_USER=""
+REPO_NAME=""
+GIT_USER=""
+GIT_EMAIL=""
+GIT_CONFIG_URL=""
 
 # Required packages
 PACKAGES=(
@@ -58,26 +58,50 @@ check_root() {
     fi
 }
 
+show_usage() {
+    echo -e "${BLUE}Usage: $0 [REQUIRED OPTIONS]${NC}"
+    echo ""
+    echo "Required Options:"
+    echo "  --ops-user         Operations user name"
+    echo "  --github-user      GitHub username/organization"
+    echo "  --git-user         Git username"
+    echo "  --git-email        Git email address"
+    echo "  --repo             Repository name"
+    echo ""
+    echo "Optional:"
+    echo "  -h, --help         Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --ops-user ops --github-user policloud-ops --git-user ops --git-email ops@policloud.com --repo tools"
+    echo "  $0 --ops-user admin --github-user mycompany --git-user 'John Doe' --git-email john@company.com --repo devops"
+}
+
 parse_arguments() {
-    GIT_USER="$DEFAULT_GIT_USER"
-    GIT_EMAIL="$DEFAULT_GIT_EMAIL"
-    GITHUB_USER="$DEFAULT_GITHUB_USER"
+    if [[ $# -eq 0 ]]; then
+        print_error "No arguments provided"
+        show_usage
+        exit 1
+    fi
     
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -u|--user)
-                GIT_USER="$2"
+            --ops-user)
+                OPS_USER="$2"
                 shift 2
                 ;;
-            -e|--email)
-                GIT_EMAIL="$2"
-                shift 2
-                ;;
-            -g|--github-user)
+            --github-user)
                 GITHUB_USER="$2"
                 shift 2
                 ;;
-            -r|--repo)
+            --git-user)
+                GIT_USER="$2"
+                shift 2
+                ;;
+            --git-email)
+                GIT_EMAIL="$2"
+                shift 2
+                ;;
+            --repo)
                 REPO_NAME="$2"
                 shift 2
                 ;;
@@ -93,32 +117,26 @@ parse_arguments() {
         esac
     done
     
-    # Set the Git config URL after parsing arguments
+    # Validate required arguments
+    if [[ -z "$OPS_USER" || -z "$GITHUB_USER" || -z "$GIT_USER" || -z "$GIT_EMAIL" || -z "$REPO_NAME" ]]; then
+        print_error "Missing required arguments"
+        show_usage
+        exit 1
+    fi
+    
+    # Set derived variables
+    SSH_DIR="/home/${OPS_USER}/.ssh"
     GIT_CONFIG_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/refs/heads/main/configure-git.sh"
     
-    print_step "Git configuration will use: $GIT_USER <$GIT_EMAIL>"
-    print_step "GitHub repository: $GITHUB_USER/$REPO_NAME"
-}
-
-show_usage() {
-    echo -e "${BLUE}Usage: $0 [OPTIONS]${NC}"
-    echo ""
-    echo "Options:"
-    echo "  -u, --user         Git username (default: $DEFAULT_GIT_USER)"
-    echo "  -e, --email        Git email (default: $DEFAULT_GIT_EMAIL)"
-    echo "  -g, --github-user  GitHub username/organization (default: $DEFAULT_GITHUB_USER)"
-    echo "  -r, --repo         Repository name (default: $REPO_NAME)"
-    echo "  -h, --help         Show this help message"
-    echo ""
-    echo "Examples:"
-    echo "  $0"
-    echo "  $0 --user 'John Doe' --email 'john@example.com'"
-    echo "  $0 -u 'Jane Smith' -e 'jane@company.com' -g 'my-org'"
-    echo "  $0 --github-user 'mycompany' --repo 'devops-tools'"
+    print_step "Configuration:"
+    print_step "  Operations user: $OPS_USER"
+    print_step "  Git user: $GIT_USER <$GIT_EMAIL>"
+    print_step "  GitHub repository: $GITHUB_USER/$REPO_NAME"
+    print_step "  SSH directory: $SSH_DIR"
 }
 
 create_ops_user() {
-    print_step "Creating ops user..."
+    print_step "Creating operations user: $OPS_USER"
     
     if id "$OPS_USER" &>/dev/null; then
         print_success "User $OPS_USER already exists"
@@ -150,15 +168,15 @@ install_packages() {
 }
 
 generate_ssh_keys() {
-    print_step "Generating SSH keys..."
+    print_step "Generating SSH keys for user: $OPS_USER"
     
     # Generate ops key (default)
     if [[ ! -f "${SSH_DIR}/id_ed25519" ]]; then
-        print_step "Generating ops SSH key..."
+        print_step "Generating operations SSH key..."
         sudo -u "$OPS_USER" ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "${SSH_DIR}/id_ed25519" -N ""
-        print_success "Ops SSH key generated"
+        print_success "Operations SSH key generated"
     else
-        print_success "Ops SSH key already exists"
+        print_success "Operations SSH key already exists"
     fi
     
     # Generate GitHub deploy key
@@ -176,7 +194,7 @@ generate_ssh_keys() {
 }
 
 configure_ssh_config() {
-    print_step "Configuring SSH client..."
+    print_step "Configuring SSH client for user: $OPS_USER"
     
     SSH_CONFIG="${SSH_DIR}/config"
     
@@ -204,7 +222,7 @@ Host netsrv*
 }
 
 download_git_script() {
-    print_step "Downloading Git configuration script..."
+    print_step "Downloading Git configuration script from: $GIT_CONFIG_URL"
     
     SCRIPT_PATH="/home/${OPS_USER}/configure-git.sh"
     
@@ -218,7 +236,7 @@ download_git_script() {
 }
 
 run_git_configuration() {
-    print_step "Configuring Git globally..."
+    print_step "Configuring Git globally for user: $OPS_USER"
     
     # Set global Git configuration
     sudo -u "$OPS_USER" git config --global user.name "$GIT_USER"
@@ -252,7 +270,7 @@ run_git_configuration() {
 }
 
 setup_docker() {
-    print_step "Configuring Docker..."
+    print_step "Configuring Docker for user: $OPS_USER"
     
     # Add ops user to docker group
     usermod -aG docker "$OPS_USER"
@@ -277,19 +295,19 @@ display_summary() {
     echo "  - Email: $GIT_EMAIL"
     echo "• GitHub repository: $GITHUB_USER/$REPO_NAME"
     echo "• SSH keys generated:"
-    echo "  - ${SSH_DIR}/id_ed25519 (ops key)"
+    echo "  - ${SSH_DIR}/id_ed25519 (operations key)"
     echo "  - ${SSH_DIR}/github_deploy (GitHub deploy key)"
     echo "• SSH config configured for GitHub and network servers"
     echo "• Docker service enabled and started"
     echo "• Git configuration script executed"
     
     echo -e "\n${YELLOW}📝 Next Steps:${NC}"
-    echo "1. Switch to ops user: sudo su - $OPS_USER"
+    echo "1. Switch to operations user: sudo su - $OPS_USER"
     echo "2. Verify Git repository was cloned successfully"
     echo "3. Setup MAAS/operations/inventory/mine-agents as required"
     
     echo -e "\n${BLUE}🔑 Public Keys:${NC}"
-    echo "Ops key:"
+    echo "Operations key:"
     sudo -u "$OPS_USER" cat "${SSH_DIR}/id_ed25519.pub" 2>/dev/null || echo "  (not found)"
     echo ""
     echo "GitHub deploy key:"
@@ -312,5 +330,5 @@ main() {
     display_summary
 }
 
-# Run main function
+# Run main function with all arguments
 main "$@"
