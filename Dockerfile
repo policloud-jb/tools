@@ -13,11 +13,11 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /test
 
 # Copy the setup script
-COPY setup-system.sh /test/
-RUN chmod +x /test/setup-system.sh
+COPY setup-controller.sh /test/
+RUN chmod +x /test/setup-controller.sh
 
 # Default command to run the script with test parameters
-CMD ["./setup-system.sh", \
+CMD ["./setup-controller.sh", \
      "--ops-user", "ops", \
      "--github-user", "policloud-ops", \
      "--git-user", "ops", \
