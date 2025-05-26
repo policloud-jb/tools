@@ -6,18 +6,19 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
-    systemctl \
+    systemd \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a working directory
 WORKDIR /test
 
 # Copy the setup script
-COPY setup-controller.sh /test/
-RUN chmod +x /test/setup-controller.sh
+COPY setup-system.sh /test/
+RUN chmod +x /test/setup-system.sh
 
 # Default command to run the script with test parameters
-CMD ["./setup-controller.sh", \
+CMD ["./setup-system.sh", \
      "--ops-user", "ops", \
      "--github-user", "policloud-ops", \
      "--git-user", "ops", \
