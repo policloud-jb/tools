@@ -173,7 +173,11 @@ generate_ssh_keys() {
     # Generate ops key (default)
     if [[ ! -f "${SSH_DIR}/id_ed25519" ]]; then
         print_step "Generating operations SSH key..."
-        sudo -u "$OPS_USER" ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "${SSH_DIR}/id_ed25519" -N ""
+        if command -v sudo >/dev/null 2>&1; then
+            sudo -u "$OPS_USER" ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "${SSH_DIR}/id_ed25519" -N ""
+        else
+            su - "$OPS_USER" -c "ssh-keygen -t ed25519 -C '$GIT_EMAIL' -f '${SSH_DIR}/id_ed25519' -N ''"
+        fi
         print_success "Operations SSH key generated"
     else
         print_success "Operations SSH key already exists"
@@ -182,15 +186,23 @@ generate_ssh_keys() {
     # Generate GitHub deploy key
     if [[ ! -f "${SSH_DIR}/github_deploy" ]]; then
         print_step "Generating GitHub deploy SSH key..."
-        sudo -u "$OPS_USER" ssh-keygen -t ed25519 -f "${SSH_DIR}/github_deploy" -C "github-deploy-key" -N ""
+        if command -v sudo >/dev/null 2>&1; then
+            sudo -u "$OPS_USER" ssh-keygen -t ed25519 -f "${SSH_DIR}/github_deploy" -C "github-deploy-key" -N ""
+        else
+            su - "$OPS_USER" -c "ssh-keygen -t ed25519 -f '${SSH_DIR}/github_deploy' -C 'github-deploy-key' -N ''"
+        fi
         print_success "GitHub deploy SSH key generated"
     else
         print_success "GitHub deploy SSH key already exists"
     fi
     
     # Set correct permissions
-    sudo -u "$OPS_USER" chmod 600 "${SSH_DIR}"/*
-    sudo -u "$OPS_USER" chmod 644 "${SSH_DIR}"/*.pub
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -u "$OPS_USER" chmod 600 "${SSH_DIR}"/*
+        sudo -u "$OPS_USER" chmod 644 "${SSH_DIR}"/*.pub
+    else
+        su - "$OPS_USER" -c "chmod 600 '${SSH_DIR}'/* && chmod 644 '${SSH_DIR}'/*.pub"
+    fi
 }
 
 configure_ssh_config() {
@@ -213,8 +225,15 @@ Host netsrv*
 "
     
     if [[ ! -f "$SSH_CONFIG" ]] || ! grep -q "github.com" "$SSH_CONFIG" 2>/dev/null; then
-        echo "$SSH_CONFIG_CONTENT" | sudo -u "$OPS_USER" tee "$SSH_CONFIG" > /dev/null
-        sudo -u "$OPS_USER" chmod 600 "$SSH_CONFIG"
+        if command -v sudo >/dev/null 2>&1; then
+            echo "$SSH_CONFIG_CONTENT" | sudo -u "$OPS_USER" tee "$SSH_CONFIG" > /dev/null
+            sudo -u "$OPS_USER" chmod 600 "$SSH_CONFIG"
+        else
+            su - "$OPS_USER" -c "cat > '$SSH_CONFIG' << 'EOF'
+$SSH_CONFIG_CONTENT
+EOF"
+            su - "$OPS_USER" -c "chmod 600 '$SSH_CONFIG'"
+        fi
         print_success "SSH config created"
     else
         print_success "SSH config already exists"
@@ -226,12 +245,22 @@ download_git_script() {
     
     SCRIPT_PATH="/home/${OPS_USER}/configure-git.sh"
     
-    if sudo -u "$OPS_USER" wget -q -O "$SCRIPT_PATH" "$GIT_CONFIG_URL"; then
-        sudo -u "$OPS_USER" chmod +x "$SCRIPT_PATH"
-        print_success "Git configuration script downloaded to $SCRIPT_PATH"
+    if command -v sudo >/dev/null 2>&1; then
+        if sudo -u "$OPS_USER" wget -q -O "$SCRIPT_PATH" "$GIT_CONFIG_URL"; then
+            sudo -u "$OPS_USER" chmod +x "$SCRIPT_PATH"
+            print_success "Git configuration script downloaded to $SCRIPT_PATH"
+        else
+            print_error "Failed to download Git configuration script"
+            return 1
+        fi
     else
-        print_error "Failed to download Git configuration script"
-        return 1
+        if su - "$OPS_USER" -c "wget -q -O '$SCRIPT_PATH' '$GIT_CONFIG_URL'"; then
+            su - "$OPS_USER" -c "chmod +x '$SCRIPT_PATH'"
+            print_success "Git configuration script downloaded to $SCRIPT_PATH"
+        else
+            print_error "Failed to download Git configuration script"
+            return 1
+        fi
     fi
 }
 
@@ -239,10 +268,17 @@ run_git_configuration() {
     print_step "Configuring Git globally for user: $OPS_USER"
     
     # Set global Git configuration
-    sudo -u "$OPS_USER" git config --global user.name "$GIT_USER"
-    sudo -u "$OPS_USER" git config --global user.email "$GIT_EMAIL"
-    sudo -u "$OPS_USER" git config --global init.defaultBranch main
-    sudo -u "$OPS_USER" git config --global pull.rebase false
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -u "$OPS_USER" git config --global user.name "$GIT_USER"
+        sudo -u "$OPS_USER" git config --global user.email "$GIT_EMAIL"
+        sudo -u "$OPS_USER" git config --global init.defaultBranch main
+        sudo -u "$OPS_USER" git config --global pull.rebase false
+    else
+        su - "$OPS_USER" -c "git config --global user.name '$GIT_USER'"
+        su - "$OPS_USER" -c "git config --global user.email '$GIT_EMAIL'"
+        su - "$OPS_USER" -c "git config --global init.defaultBranch main"
+        su - "$OPS_USER" -c "git config --global pull.rebase false"
+    fi
     
     print_success "Git global configuration completed"
     print_step "Git user: $GIT_USER"
@@ -257,7 +293,11 @@ run_git_configuration() {
         echo -e "${YELLOW}Note: You may need to provide GitHub token and repository details${NC}"
         
         # Run the script as ops user
-        sudo -u "$OPS_USER" bash "$SCRIPT_PATH"
+        if command -v sudo >/dev/null 2>&1; then
+            sudo -u "$OPS_USER" bash "$SCRIPT_PATH"
+        else
+            su - "$OPS_USER" -c "bash '$SCRIPT_PATH'"
+        fi
         
         if [[ $? -eq 0 ]]; then
             print_success "Git configuration script completed successfully"
@@ -275,11 +315,17 @@ setup_docker() {
     # Add ops user to docker group
     usermod -aG docker "$OPS_USER"
     
-    # Enable and start docker service
-    systemctl enable docker
-    systemctl start docker
+    # Enable and start docker service (skip if systemd not available)
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-system-running --quiet 2>/dev/null; then
+        systemctl enable docker
+        systemctl start docker
+        print_success "Docker service enabled and started"
+    else
+        print_step "Systemd not available - Docker service configuration skipped"
+        print_step "In production, run: systemctl enable docker && systemctl start docker"
+    fi
     
-    print_success "Docker configured and started"
+    print_success "Docker configured"
 }
 
 display_summary() {
@@ -298,20 +344,32 @@ display_summary() {
     echo "  - ${SSH_DIR}/id_ed25519 (operations key)"
     echo "  - ${SSH_DIR}/github_deploy (GitHub deploy key)"
     echo "• SSH config configured for GitHub and network servers"
-    echo "• Docker service enabled and started"
+    echo "• Docker service configured"
     echo "• Git configuration script executed"
     
     echo -e "\n${YELLOW}📝 Next Steps:${NC}"
-    echo "1. Switch to operations user: sudo su - $OPS_USER"
+    if command -v sudo >/dev/null 2>&1; then
+        echo "1. Switch to operations user: sudo su - $OPS_USER"
+    else
+        echo "1. Switch to operations user: su - $OPS_USER"
+    fi
     echo "2. Verify Git repository was cloned successfully"
     echo "3. Setup MAAS/operations/inventory/mine-agents as required"
     
     echo -e "\n${BLUE}🔑 Public Keys:${NC}"
     echo "Operations key:"
-    sudo -u "$OPS_USER" cat "${SSH_DIR}/id_ed25519.pub" 2>/dev/null || echo "  (not found)"
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -u "$OPS_USER" cat "${SSH_DIR}/id_ed25519.pub" 2>/dev/null || echo "  (not found)"
+    else
+        su - "$OPS_USER" -c "cat '${SSH_DIR}/id_ed25519.pub'" 2>/dev/null || echo "  (not found)"
+    fi
     echo ""
     echo "GitHub deploy key:"
-    sudo -u "$OPS_USER" cat "${SSH_DIR}/github_deploy.pub" 2>/dev/null || echo "  (not found)"
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -u "$OPS_USER" cat "${SSH_DIR}/github_deploy.pub" 2>/dev/null || echo "  (not found)"
+    else
+        su - "$OPS_USER" -c "cat '${SSH_DIR}/github_deploy.pub'" 2>/dev/null || echo "  (not found)"
+    fi
 }
 
 # -------- MAIN EXECUTION --------
